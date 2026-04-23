@@ -3,6 +3,7 @@
 > A Chrome extension that captures and displays all events fired on any web page in real-time.
 
 <p align="center">
+  <img src="https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react" alt="React">
   <img src="https://img.shields.io/badge/TypeScript-6.0-blue?style=flat-square&logo=typescript" alt="TypeScript">
   <img src="https://img.shields.io/badge/Vite-8.0-purple?style=flat-square&logo=vite" alt="Vite">
 </p>
@@ -14,7 +15,6 @@
 - **Real-time capture** — See every event as it fires, no more `console.log` hunting
 - **Native + Custom** — Captures both DOM events (click, input, submit, focus, etc.) and `CustomEvent` dispatches
 - **Target info** — Shows exactly which element triggered the event (CSS selector)
-- **Shadow DOM** — Panel is isolated from page styles — no conflicts
 - **Click to scroll** — Click any event in the list to jump to its target in the page
 - **Pause/Resume** — Toggle capture on/off without losing events
 
@@ -83,7 +83,8 @@ pnpm build
 event-inspector/
 ├── manifest.json      # Extension manifest (v3)
 ├── src/
-│   ├── main.ts      # Entry point
+│   ├── Panel.tsx    # React Panel component
+│   ├── content-script.tsx  # Entry point
 │   └── ...
 ├── dist/           # Build output
 └── package.json
@@ -94,6 +95,7 @@ event-inspector/
 ## 🛠️ Tech Stack
 
 - **Build**: Vite 8.0
+- **Framework**: React 19
 - **Language**: TypeScript 6.0
 - **Platform**: Chrome Extension (Manifest v3)
 

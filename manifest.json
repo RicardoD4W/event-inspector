@@ -2,21 +2,13 @@
   "manifest_version": 3,
   "name": "Event Inspector",
   "version": "1.0.0",
-  "description": "Capture and display all events fired on a page (native + custom)",
-  "permissions": ["activeTab"],
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content-script.js"],
-      "run_at": "document_end"
-    }
-  ],
-  "browser_action": {
-    "default_title": "Toggle Event Inspector"
+  "description": "Capture and display all events fired on a page (native + custom). Click icon to activate.",
+  "permissions": ["activeTab", "scripting"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   },
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+  "action": {
+    "default_title": "Toggle Event Inspector"
   }
 }
