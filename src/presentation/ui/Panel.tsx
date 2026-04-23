@@ -77,8 +77,8 @@ const styles: Record<string, React.CSSProperties> = {
   // Root
   host: {
     position: "fixed",
-    top: "20px",
-    right: "20px",
+    top: 20,
+    right: 20,
     width: "400px",
     zIndex: "2147483647",
     fontFamily: THEME.fontUI,
@@ -126,6 +126,7 @@ panelCollapsing: {
     background: THEME.bgDark,
     borderBottom: `1px solid ${THEME.border}`,
     flexShrink: 0,
+    cursor: "grab",
   },
   title: {
     margin: 0,
@@ -808,6 +809,53 @@ export function Panel(props: PanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
+  // Dragging state
+  const [position, setPosition] = useState({ x: 20, y: 20 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    });
+  }, [position]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    // Get panel dimensions (approximate)
+    const panelWidth = isExpanded ? 440 : 400;
+    const panelHeight = isExpanded ? 620 : 400;
+    
+    // Calculate boundaries to keep panel on screen
+    const maxX = window.innerWidth - panelWidth;
+    const maxY = window.innerHeight - panelHeight;
+    
+    setPosition({
+      x: Math.max(0, Math.min(maxX, e.clientX - dragOffset.x)),
+      y: Math.max(0, Math.min(maxY, e.clientY - dragOffset.y)),
+    });
+  }, [isDragging, dragOffset, isExpanded]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add global mouse event listeners when dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
   const handleMinimize = useCallback(() => {
     setMinimized((prev) => !prev);
   }, []);
@@ -903,8 +951,12 @@ export function Panel(props: PanelProps) {
     <div
       style={{
         ...styles.host,
+        left: position.x,
+        top: position.y,
+        cursor: isDragging ? "grabbing" : "grab",
         ...(isExpanded ? styles.hostExpanded : {}),
       }}
+      onMouseDown={handleMouseDown}
     >
       <div
         style={{
