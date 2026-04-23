@@ -24,23 +24,22 @@ const formatTime = (timestamp: number): string => {
   });
 };
 
-export function Panel({
-  events,
-  onClear,
-  onPauseToggle,
-  onEventClick: _onEventClick,
-  paused = false,
-}: PanelProps) {
-  // Filter events
-  const nativeEvents = events.filter(e => e.eventType === 'native');
-  const customEvents = events.filter(e => e.eventType === 'custom');
-  
+export function Panel(props: PanelProps) {
+  const { events, onClear, onPauseToggle, paused = false } = props;
+
+  const nativeEvents = events.filter((e) => e.eventType === "native");
+  const customEvents = events.filter((e) => e.eventType === "custom");
+
   const [minimized, setMinimized] = useState(false);
   const [nativeCollapsed, setNativeCollapsed] = useState(true);
   const [customCollapsed, setCustomCollapsed] = useState(true);
 
   const handleMinimize = useCallback(() => {
-    setMinimized(prev => !prev);
+    setMinimized((prev) => !prev);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("event-inspector-close"));
   }, []);
 
   const handleToggleCapture = useCallback(() => {
@@ -65,45 +64,72 @@ export function Panel({
             <button style={styles.btn} onClick={handleMinimize}>
               _
             </button>
+            <button
+              id="event-inspector-close-btn"
+              style={styles.btnClose}
+              onClick={handleClose}
+            >
+              ×
+            </button>
           </div>
         </div>
-        
+
         {!minimized && (
           <div style={styles.eventList}>
             {/* Native Group */}
             <div style={styles.group}>
-              <div style={styles.groupHeader} onClick={() => setNativeCollapsed(!nativeCollapsed)}>
-                <span style={styles.collapseIcon}>{nativeCollapsed ? "▶" : "▼"}</span>
+              <div
+                style={styles.groupHeader}
+                onClick={() => setNativeCollapsed(!nativeCollapsed)}
+              >
+                <span style={styles.collapseIcon}>
+                  {nativeCollapsed ? "▶" : "▼"}
+                </span>
                 <span style={styles.badgeNative}>Native</span>
                 <span style={styles.groupCount}>{nativeEvents.length}</span>
               </div>
               {!nativeCollapsed && nativeEvents.length > 0 && (
                 <div style={styles.groupEvents}>
-                  {nativeEvents.slice(0, 30).map(event => (
-                    <div key={event.id} style={{...styles.eventItem, paddingLeft: "28px"}}>
+                  {nativeEvents.slice(0, 30).map((event) => (
+                    <div
+                      key={event.id}
+                      style={{ ...styles.eventItem, paddingLeft: "28px" }}
+                    >
                       <span style={styles.eventName}>{event.name}</span>
                       <span style={styles.eventTarget}>{event.target}</span>
-                      <span style={styles.eventTime}>{formatTime(event.timestamp)}</span>
+                      <span style={styles.eventTime}>
+                        {formatTime(event.timestamp)}
+                      </span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-            
+
             {/* Custom Group */}
             <div style={styles.group}>
-              <div style={styles.groupHeader} onClick={() => setCustomCollapsed(!customCollapsed)}>
-                <span style={styles.collapseIcon}>{customCollapsed ? "▶" : "▼"}</span>
+              <div
+                style={styles.groupHeader}
+                onClick={() => setCustomCollapsed(!customCollapsed)}
+              >
+                <span style={styles.collapseIcon}>
+                  {customCollapsed ? "▶" : "▼"}
+                </span>
                 <span style={styles.badgeCustom}>Custom</span>
                 <span style={styles.groupCount}>{customEvents.length}</span>
               </div>
               {!customCollapsed && customEvents.length > 0 && (
                 <div style={styles.groupEvents}>
-                  {customEvents.slice(0, 30).map(event => (
-                    <div key={event.id} style={{...styles.eventItem, paddingLeft: "28px"}}>
+                  {customEvents.slice(0, 30).map((event) => (
+                    <div
+                      key={event.id}
+                      style={{ ...styles.eventItem, paddingLeft: "28px" }}
+                    >
                       <span style={styles.eventName}>{event.name}</span>
                       <span style={styles.eventTarget}>{event.target}</span>
-                      <span style={styles.eventTime}>{formatTime(event.timestamp)}</span>
+                      <span style={styles.eventTime}>
+                        {formatTime(event.timestamp)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -164,6 +190,16 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontSize: "12px",
   },
+  btnClose: {
+    background: "#f44336",
+    border: "none",
+    color: "#fff",
+    padding: "4px 10px",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "bold",
+  },
   btnOn: {
     background: "#4CAF50",
     border: "none",
@@ -217,7 +253,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
   },
-eventItem: {
+  eventItem: {
     padding: "6px 8px",
     marginBottom: "4px",
     borderRadius: "4px",
@@ -225,6 +261,22 @@ eventItem: {
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
+  },
+  badgeNative: {
+    background: "#4CAF50",
+    color: "#fff",
+    padding: "2px 6px",
+    borderRadius: "3px",
+    fontSize: "10px",
+    marginRight: "6px",
+  },
+  badgeCustom: {
+    background: "#2196F3",
+    color: "#fff",
+    padding: "2px 6px",
+    borderRadius: "3px",
+    fontSize: "10px",
+    marginRight: "6px",
   },
   eventName: {
     fontWeight: 600,
@@ -244,21 +296,5 @@ eventItem: {
     fontSize: "10px",
     marginLeft: "auto",
     flexShrink: 0,
-  },
-  badgeNative: {
-    background: "#4CAF50",
-    color: "#fff",
-    padding: "2px 6px",
-    borderRadius: "3px",
-    fontSize: "10px",
-    marginRight: "6px",
-  },
-  badgeCustom: {
-    background: "#2196F3",
-    color: "#fff",
-    padding: "2px 6px",
-    borderRadius: "3px",
-    fontSize: "10px",
-    marginRight: "6px",
   },
 };

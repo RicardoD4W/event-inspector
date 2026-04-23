@@ -8,14 +8,18 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useState, useCallback } from "react";
 import { Panel } from "../ui/Panel";
-import { getState, setState, subscribe } from "../../infrastructure/store/StateStore";
+import {
+  getState,
+  setState,
+  subscribe,
+} from "../../infrastructure/store/StateStore";
 import type { AppState } from "../../domain/entities/EventRecord";
 import {
   startCapture,
+  stopCapture,
   toggleCapture,
   clearEvents,
   addCustomEvent,
-  getIsPanelVisible,
   setPanelVisible,
   setPanelRoot,
   isCaptureEnabled,
@@ -26,8 +30,11 @@ import type { EventRecord } from "../../domain/entities/EventRecord";
 
 const PANEL_CONTAINER_ID = "event-inspector-container";
 
-// Prevent multiple injections
-let initialized = false;
+// Use window to persist across content script injections
+const getInitialized = () => (window as any).__panelInitialized__;
+const setInitialized = (val: boolean) => {
+  (window as any).__panelInitialized__ = val;
+};
 
 /**
  * React Panel - connected to store via subscription
@@ -74,59 +81,79 @@ function createPanel(): void {
     "position:fixed;top:0;left:0;width:0;height:0;z-index:2147483647;pointer-events:none;";
   document.body.appendChild(container);
 
-  setPanelRoot(container);
+setPanelRoot(container);
 
+  let root: any;
+
+  // Listen for close event from panel button - needs root to be accessible
+  const handleClose = () => {
+    console.log('[ContentScript] Close event received');
+    if (container && root) {
+      root.unmount();
+      clearEvents();
+      setState({ events: [], paused: false });
+      container.remove();
+      setInitialized(false);
+      stopCapture();
+      console.log('[ContentScript] Panel destroyed');
+    }
+  };
+  window.addEventListener("event-inspector-close", handleClose);
+  
   // Initialize store from event-capture
   setState({ events: getEvents(), paused: !isCaptureEnabled() });
 
-  const root = createRoot(container);
-  const render = () => {
-    root.render(
-      <ReactPanel
-        onClear={() => {
-          clearEvents();
-          setState({ events: getEvents() });
-        }}
-        onPauseToggle={() => {
-          const newCaptureState = toggleCapture();
-          setState({ paused: !newCaptureState });
-        }}
-      />
-    );
-  };
-
-  render();
+  root = createRoot(container);
+  
+  const panelProps = {
+    onClear: () => {
+      clearEvents();
+      setState({ events: getEvents() });
+    },
+    onPauseToggle: () => {
+      const newCaptureState = toggleCapture();
+      setState({ paused: !newCaptureState });
+    }
+  } as any;
+  
+  root.render(<ReactPanel {...panelProps} />);
 
   // Start capture
   startCapture();
 }
 
 /**
- * Get existing panel or create if doesn't exist
- */
-function getOrCreatePanel(): void {
-  if (!initialized) {
-    initialized = true;
-    createPanel();
-  }
-}
-
-/**
  * Toggle panel visibility (called from extension icon click)
  */
 function togglePanelVisibility(): void {
-  getOrCreatePanel();
-  const newState = !getIsPanelVisible();
-  setPanelVisible(newState);
-
   const container = document.getElementById(PANEL_CONTAINER_ID);
-  if (container) {
-    container.style.display = newState ? "block" : "none";
+
+  if (!getInitialized()) {
+    // First time - create panel
+    setInitialized(true);
+    createPanel();
+    return;
   }
 
-  // Update store with current events
-  if (newState) {
-    setState({ events: getEvents() });
+  if (!container) {
+    // Panel was removed - recreate
+    setInitialized(true);
+    createPanel();
+    return;
+  }
+
+  // Panel exists - toggle between show and destroy
+  const isVisible = container.style.display !== "none";
+
+  if (isVisible) {
+    // Destroy - remove from DOM
+    container.remove();
+    setInitialized(false);
+    setPanelVisible(false);
+  } else {
+    // Recreate panel
+    setInitialized(true);
+    createPanel();
   }
 }
 
@@ -134,15 +161,19 @@ function togglePanelVisibility(): void {
  * Show panel on initial load
  */
 function showPanel(): void {
-  getOrCreatePanel();
-  setPanelVisible(true);
-
   const container = document.getElementById(PANEL_CONTAINER_ID);
-  if (container) {
+
+  if (getInitialized() && container) {
+    // Already exists and visible
+    setPanelVisible(true);
     container.style.display = "block";
+    setState({ events: getEvents() });
+    return;
   }
 
-  setState({ events: getEvents() });
+  // Create new panel
+  setInitialized(true);
+  createPanel();
 }
 
 /**
@@ -178,18 +209,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 // Listen for event-click from React panel
-window.addEventListener(
-  "event-inspector-event-click",
-  ((e: CustomEvent) => {
-    if (e.detail?.targetElement) {
-      e.detail.targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
-      const element = e.detail.targetElement as HTMLElement;
-      element.style.outline = "2px solid #FF9800";
-      element.style.outlineOffset = "2px";
-      setTimeout(() => {
-        element.style.outline = "";
-        element.style.outlineOffset = "";
-      }, 2000);
-    }
-  }) as EventListener
-);
+window.addEventListener("event-inspector-event-click", ((e: CustomEvent) => {
+  if (e.detail?.targetElement) {
+    e.detail.targetElement.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    const element = e.detail.targetElement as HTMLElement;
+    element.style.outline = "2px solid #FF9800";
+    element.style.outlineOffset = "2px";
+    setTimeout(() => {
+      element.style.outline = "";
+      element.style.outlineOffset = "";
+    }, 2000);
+  }
+}) as EventListener);
