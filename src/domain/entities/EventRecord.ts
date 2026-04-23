@@ -14,6 +14,7 @@ export interface EventRecord {
   timestamp: number;
   detail?: unknown;
   bubbles?: boolean;
+  composedPath?: Element[];  // DOM path from target to window
 }
 
 export interface AppState {

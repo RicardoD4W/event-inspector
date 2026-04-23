@@ -37,7 +37,11 @@ let panelRoot: Element | null = null;
 function handleNativeEvent(event: Event): void {
   if (!isCapturing) return;
 
-  const target = event.target;
+  // Get the actual element that received the event (not parent elements)
+  // Use composedPath to get the actual target, not event.target which might be a text node
+  const path = event.composedPath();
+  const target = (path[0] instanceof Element ? path[0] : event.target) as Element;
+  
   if (!target || !(target instanceof Element)) return;
 
   // Don't capture events from the panel itself
@@ -50,6 +54,7 @@ function handleNativeEvent(event: Event): void {
     target: getCssSelector(target),
     targetElement: target,
     timestamp: Date.now(),
+    composedPath: path.filter((node): node is Element => node instanceof Element),
   };
 
   events.unshift(record);
