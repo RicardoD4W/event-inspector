@@ -1,8 +1,8 @@
 /**
  * Event Inspector Panel - Presentation Layer
  *
- * React component for the Event Inspector panel.
- * Supports main view and expanded detail view.
+ * A distinctive DevTools-style panel with Nord-inspired palette
+ * and JetBrains Mono typography.
  */
 
 import { useState, useCallback, useEffect } from "react";
@@ -17,6 +17,10 @@ export interface PanelProps {
   paused?: boolean;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants & Theme
+// ─────────────────────────────────────────────────────────────────────────────
+
 const formatTime = (timestamp: number): string => {
   return new Date(timestamp).toLocaleTimeString("en-US", {
     hour12: false,
@@ -26,33 +30,476 @@ const formatTime = (timestamp: number): string => {
   });
 };
 
+// Nord-inspired palette
+const THEME = {
+  // Backgrounds
+  bg: "#2E3440",
+  bgLight: "#3B4252",
+  bgDark: "#1D2430",
+
+  // Foregrounds
+  fg: "#ECEFF4",
+  fgMuted: "#D8DEE9",
+  fgDim: "#8899A6",
+
+  // Accents
+  accent: "#88C0D0", // Cyan
+  accentGreen: "#A3BE8C", // Green (native)
+  accentBlue: "#81A1C1", // Blue (custom)
+  accentOrange: "#D08770", // Orange (highlight)
+  accentRed: "#BF616A", // Red (danger)
+
+  // Borders
+  border: "#4C566A",
+  borderLight: "#5E6578",
+
+  // Shadows
+  shadow: "rgba(0, 0, 0, 0.4)",
+
+  // Fonts
+  fontMono: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+  fontUI: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+};
+
+// Animation timings
+const TIMING = {
+  fast: "150ms",
+  normal: "250ms",
+  slow: "400ms",
+  easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
-// VirtualScroll Component - Efficient rendering for long lists
+// Styles (CSS Custom Properties approach)
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface VirtualScrollProps {
-  items: Element[];
+const styles: Record<string, React.CSSProperties> = {
+  // Root
+  host: {
+    position: "fixed",
+    top: "20px",
+    right: "20px",
+    width: "400px",
+    zIndex: "2147483647",
+    fontFamily: THEME.fontUI,
+    fontSize: "13px",
+    pointerEvents: "auto",
+  },
+  hostExpanded: {
+    width: "440px",
+  },
+
+  // Panel
+  panel: {
+    background: THEME.bg,
+    color: THEME.fg,
+    borderRadius: "12px",
+    boxShadow: `0 8px 32px ${THEME.shadow}, 0 0 0 1px ${THEME.border}`,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    maxHeight: "400px",
+    opacity: 1,
+    transition: `max-height ${TIMING.slow} ${TIMING.easing}, opacity ${TIMING.normal} ${TIMING.easing}`,
+  },
+  panelCollapsing: {
+    maxHeight: "0px",
+    opacity: 0,
+  },
+  panelExpanded: {
+    maxHeight: "620px",
+  },
+
+  // Header
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "12px 16px",
+    background: THEME.bgDark,
+    borderBottom: `1px solid ${THEME.border}`,
+    flexShrink: 0,
+  },
+  title: {
+    margin: 0,
+    fontSize: "13px",
+    fontWeight: 600,
+    letterSpacing: "0.5px",
+    color: THEME.accent,
+  },
+  actions: {
+    display: "flex",
+    gap: "6px",
+  },
+
+  // Buttons
+  btn: {
+    background: THEME.bgLight,
+    border: "none",
+    color: THEME.fgMuted,
+    padding: "6px 12px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: 500,
+    transition: `all ${TIMING.fast} ease`,
+  },
+  btnClose: {
+    background: THEME.accentRed,
+    border: "none",
+    color: THEME.fg,
+    padding: "6px 10px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: 600,
+    transition: `all ${TIMING.fast} ease`,
+  },
+  btnOn: {
+    background: THEME.accentGreen,
+    border: "none",
+    color: THEME.bgDark,
+    padding: "6px 12px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: 600,
+    transition: `all ${TIMING.fast} ease`,
+  },
+  btnOff: {
+    background: THEME.accentOrange,
+    border: "none",
+    color: THEME.bgDark,
+    padding: "6px 12px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: 600,
+    transition: `all ${TIMING.fast} ease`,
+  },
+  backBtn: {
+    background: THEME.accent,
+    border: "none",
+    color: THEME.bgDark,
+    padding: "8px 16px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: 600,
+    transition: `all ${TIMING.fast} ${TIMING.easing}`,
+  },
+  minimizeBtn: {
+    background: THEME.bgLight,
+    border: "none",
+    color: THEME.fgMuted,
+    padding: "6px 12px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: 600,
+    transition: `all ${TIMING.fast} ${TIMING.easing}`,
+  },
+
+  // Event List
+  eventList: {
+    maxHeight: "340px",
+    overflowY: "auto",
+    padding: "12px",
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  virtualScrollContainer: {
+    overflowY: "auto",
+    scrollbarWidth: "thin",
+    scrollbarColor: `${THEME.border} transparent`,
+  },
+
+  // Groups
+  group: {
+    marginBottom: "4px",
+  },
+  groupHeader: {
+    display: "flex",
+    alignItems: "center",
+    padding: "6px 10px",
+    background: THEME.bgLight,
+    borderRadius: "6px",
+    cursor: "pointer",
+    userSelect: "none",
+    transition: `all ${TIMING.fast} ease`,
+    gap: "8px",
+  },
+  collapseIcon: {
+    fontSize: "10px",
+    color: THEME.fgDim,
+    transition: `transform ${TIMING.fast} ease`,
+  },
+  groupCount: {
+    marginLeft: "auto",
+    fontSize: "11px",
+    color: THEME.fgDim,
+    background: THEME.bgDark,
+    padding: "2px 8px",
+    borderRadius: "10px",
+  },
+
+  // Event Items
+  eventItem: {
+    padding: "6px 10px",
+    borderRadius: "6px",
+    background: THEME.bgLight,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    transition: `all ${TIMING.fast} ease`,
+  },
+  eventItemHover: {
+    background: THEME.border,
+  },
+  eventName: {
+    fontFamily: THEME.fontMono,
+    fontWeight: 600,
+    fontSize: "12px",
+    color: THEME.fg,
+    flexShrink: 0,
+  },
+  eventTarget: {
+    fontFamily: THEME.fontMono,
+    fontSize: "11px",
+    color: THEME.fgDim,
+    flex: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  eventTime: {
+    fontFamily: THEME.fontMono,
+    fontSize: "10px",
+    color: THEME.fgDim,
+    opacity: 0.7,
+    flexShrink: 0,
+  },
+
+  // Badges
+  badgeNative: {
+    background: THEME.accentGreen,
+    color: THEME.bgDark,
+    padding: "2px 8px",
+    borderRadius: "4px",
+    fontSize: "10px",
+    fontWeight: 700,
+    letterSpacing: "0.5px",
+    textTransform: "uppercase",
+  },
+  badgeCustom: {
+    background: THEME.accentBlue,
+    color: THEME.fg,
+    padding: "2px 8px",
+    borderRadius: "4px",
+    fontSize: "10px",
+    fontWeight: 700,
+    letterSpacing: "0.5px",
+    textTransform: "uppercase",
+  },
+
+  // Detail View
+  detailView: {
+    padding: "16px",
+    opacity: 0,
+    transform: "translateY(-12px)",
+    transition: `opacity ${TIMING.normal} ${TIMING.easing}, transform ${TIMING.normal} ${TIMING.easing}`,
+    maxHeight: "540px",
+    overflowY: "auto",
+    scrollbarWidth: "thin",
+    scrollbarColor: `${THEME.border} transparent`,
+  },
+  detailViewVisible: {
+    opacity: 1,
+    transform: "translateY(0)",
+  },
+  detailViewExiting: {
+    opacity: 0,
+    transform: "translateY(-8px)",
+    transition: `opacity ${TIMING.fast} ease, transform ${TIMING.fast} ease`,
+  },
+  detailHeader: {
+    marginBottom: "16px",
+  },
+
+  // Event Summary (clickable)
+  eventSummary: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "16px",
+    padding: "12px",
+    background: THEME.bgLight,
+    borderRadius: "8px",
+    cursor: "pointer",
+    transition: `all ${TIMING.fast} ease`,
+    border: `1px solid ${THEME.border}`,
+    userSelect: "none",
+  },
+  eventSummaryHover: {
+    borderColor: THEME.accentOrange,
+    boxShadow: `0 0 12px ${THEME.accentOrange}33`,
+  },
+  detailEventName: {
+    fontFamily: THEME.fontMono,
+    fontSize: "18px",
+    fontWeight: 700,
+    color: THEME.fg,
+  },
+  highlightHint: {
+    marginLeft: "auto",
+    fontSize: "10px",
+    color: THEME.fgDim,
+    opacity: 0.7,
+  },
+
+  // Metadata
+  eventMeta: {
+    marginBottom: "16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+  },
+  metaRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    fontSize: "12px",
+    gap: "8px",
+  },
+  metaLabel: {
+    color: THEME.fgDim,
+    minWidth: "60px",
+    fontSize: "11px",
+  },
+  metaValue: {
+    color: THEME.fgMuted,
+  },
+  metaCode: {
+    fontFamily: THEME.fontMono,
+    fontSize: "11px",
+    color: THEME.accent,
+    background: THEME.bgDark,
+    padding: "3px 8px",
+    borderRadius: "4px",
+    wordBreak: "break-all",
+    border: `1px solid ${THEME.border}`,
+  },
+
+  // Tree Section
+  treeSection: {
+    borderTop: `1px solid ${THEME.border}`,
+    paddingTop: "16px",
+  },
+  treeTitle: {
+    margin: "0 0 12px 0",
+    fontSize: "11px",
+    fontWeight: 600,
+    color: THEME.fgDim,
+    textTransform: "uppercase",
+    letterSpacing: "1px",
+  },
+  domTree: {
+    fontFamily: THEME.fontMono,
+    fontSize: "11px",
+    lineHeight: 1.3,
+  },
+  treeEmpty: {
+    color: THEME.fgDim,
+    fontStyle: "italic",
+    padding: "8px",
+    fontSize: "12px",
+  },
+  treeNode: {
+    display: "flex",
+    alignItems: "center",
+  },
+  treeArrow: {
+    color: THEME.borderLight,
+    marginRight: "6px",
+    userSelect: "none",
+  },
+  treeSelector: {
+    color: THEME.fgMuted,
+  },
+  treeSelectorTarget: {
+    color: THEME.accentGreen,
+    fontWeight: 700,
+  },
+  targetBadge: {
+    marginLeft: "10px",
+    background: THEME.accentGreen,
+    color: THEME.bgDark,
+    padding: "2px 6px",
+    borderRadius: "3px",
+    fontSize: "9px",
+    fontWeight: 700,
+    letterSpacing: "0.5px",
+  },
+
+  // Minimized
+  minimizedCount: {
+    position: "absolute",
+    top: "8px",
+    right: "8px",
+    background: THEME.accentOrange,
+    color: THEME.bgDark,
+    padding: "2px 8px",
+    borderRadius: "10px",
+    fontSize: "10px",
+    fontWeight: 700,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VirtualScroll Component - Generic with smooth scrolling
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface VirtualScrollProps<T> {
+  items: T[];
   itemHeight: number;
-  renderItem: (el: Element, index: number) => React.ReactNode;
+  maxHeight?: number;
+  renderItem: (item: T, index: number) => React.ReactNode;
+  emptyMessage?: string;
 }
 
-function VirtualScroll({ items, itemHeight, renderItem }: VirtualScrollProps) {
-  const containerRef = useCallback((node: HTMLDivElement | null) => {
-    // Set fixed height for scroll container
-    if (node) {
-      node.style.overflowY = "auto";
-      node.style.maxHeight = "300px";
-    }
-  }, []);
+function VirtualScroll<T>({
+  items,
+  itemHeight,
+  maxHeight = 300,
+  renderItem,
+  emptyMessage = "No items",
+}: VirtualScrollProps<T>) {
+  const containerRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node) {
+        node.style.overflowY = "auto";
+        node.style.maxHeight = `${maxHeight}px`;
+      }
+    },
+    [maxHeight],
+  );
 
   if (!items.length) {
-    return <div style={styles.treeEmpty}>No path available</div>;
+    return (
+      <div style={{ ...styles.treeEmpty, padding: "12px" }}>{emptyMessage}</div>
+    );
   }
 
   return (
-    <div ref={containerRef} style={styles.virtualScrollContainer}>
+    <div
+      ref={containerRef}
+      style={styles.virtualScrollContainer}
+      className="event-inspector-scroll"
+    >
       <div style={{ height: items.length * itemHeight, position: "relative" }}>
-        {items.map((el, i) => (
+        {items.map((item, i) => (
           <div
             key={i}
             style={{
@@ -63,7 +510,7 @@ function VirtualScroll({ items, itemHeight, renderItem }: VirtualScrollProps) {
               height: itemHeight,
             }}
           >
-            {renderItem(el, i)}
+            {renderItem(item, i)}
           </div>
         ))}
       </div>
@@ -72,7 +519,7 @@ function VirtualScroll({ items, itemHeight, renderItem }: VirtualScrollProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DomTree Component - Renders the event propagation path with virtual scroll
+// DomTree Component - Renders the event propagation path
 // ─────────────────────────────────────────────────────────────────────────────
 
 function DomTree({ path }: { path: Element[] }) {
@@ -80,32 +527,17 @@ function DomTree({ path }: { path: Element[] }) {
     return <div style={styles.treeEmpty}>No path available</div>;
   }
 
-  // Reverse to show target first → root
   const reversedPath = [...path].reverse();
-  const ITEM_HEIGHT = 24;
+  const ITEM_HEIGHT = 20;
 
   const renderNode = (el: Element, i: number) => {
     const selector = getCssSelector(el);
     const target = i === 0;
-    const depth = i;
 
     return (
-      <div
-        style={{
-          ...styles.treeNode,
-          paddingLeft: `${depth * 16 + 8}px`,
-          height: ITEM_HEIGHT,
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        <span style={styles.treeArrow}>├── </span>
-        <span
-          style={{
-            ...styles.treeSelector,
-            ...(target ? styles.treeSelectorTarget : {}),
-          }}
-        >
+      <div style={{ ...styles.treeNode, paddingLeft: `${i * 14 + 8}px` }}>
+        <span style={styles.treeArrow}>├──</span>
+        <span style={target ? styles.treeSelectorTarget : styles.treeSelector}>
           {selector}
         </span>
         {target && <span style={styles.targetBadge}>TARGET</span>}
@@ -115,13 +547,19 @@ function DomTree({ path }: { path: Element[] }) {
 
   return (
     <div style={styles.domTree}>
-      <VirtualScroll items={reversedPath} itemHeight={ITEM_HEIGHT} renderItem={renderNode} />
+      <VirtualScroll
+        items={reversedPath}
+        itemHeight={ITEM_HEIGHT}
+        maxHeight={280}
+        renderItem={renderNode}
+        emptyMessage="No path available"
+      />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EventDetailView Component - Expanded detail with DOM tree
+// EventDetailView Component - Expanded detail view
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface EventDetailViewProps {
@@ -131,22 +569,23 @@ interface EventDetailViewProps {
   isExiting?: boolean;
 }
 
-function EventDetailView({ event, onBack, onTargetClick, isExiting }: EventDetailViewProps) {
+function EventDetailView({
+  event,
+  onBack,
+  onTargetClick,
+  isExiting,
+}: EventDetailViewProps) {
   const [visible, setVisible] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     if (isExiting) {
       setVisible(false);
     } else {
-      // Delay content visibility for smooth animation
       const timer = setTimeout(() => setVisible(true), 50);
       return () => clearTimeout(timer);
     }
   }, [isExiting]);
-
-  const handleTargetClick = useCallback(() => {
-    onTargetClick(event.targetElement);
-  }, [onTargetClick, event.targetElement]);
 
   return (
     <div
@@ -156,22 +595,40 @@ function EventDetailView({ event, onBack, onTargetClick, isExiting }: EventDetai
         ...(isExiting ? styles.detailViewExiting : {}),
       }}
     >
-      {/* Header with back button */}
+      {/* Header */}
       <div style={styles.detailHeader}>
-        <button style={styles.backBtn} onClick={onBack}>
+        <button
+          style={styles.backBtn}
+          onClick={onBack}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateX(-2px)";
+            e.currentTarget.style.boxShadow = `0 4px 12px ${THEME.shadow}`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateX(0)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        >
           ← Back
         </button>
       </div>
 
-      {/* Event summary - clickable to highlight target */}
-      <div style={styles.eventSummary} onClick={handleTargetClick}>
+      {/* Event Summary - Clickable */}
+      <div
+        style={{
+          ...styles.eventSummary,
+          ...(hovered ? styles.eventSummaryHover : {}),
+        }}
+        onClick={() => onTargetClick(event.targetElement)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
         <span
-          style={{
-            ...(event.eventType === "native"
+          style={
+            event.eventType === "native"
               ? styles.badgeNative
-              : styles.badgeCustom),
-            cursor: "pointer",
-          }}
+              : styles.badgeCustom
+          }
         >
           {event.eventType}
         </span>
@@ -207,9 +664,93 @@ function EventDetailView({ event, onBack, onTargetClick, isExiting }: EventDetai
 
       {/* DOM Tree */}
       <div style={styles.treeSection}>
-        <h4 style={styles.treeTitle}>Event Path (DOM Tree)</h4>
+        <h4 style={styles.treeTitle}>Event Path</h4>
         <DomTree path={event.composedPath || []} />
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EventListItem Component - Single event with hover states
+// ─────────────────────────────────────────────────────────────────────────────
+
+function EventListItem({
+  event,
+  onClick,
+}: {
+  event: EventRecord;
+  onClick: (e: EventRecord) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      style={{
+        ...styles.eventItem,
+        ...(hovered ? styles.eventItemHover : {}),
+      }}
+      onClick={() => onClick(event)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <span style={styles.eventName}>{event.name}</span>
+      <span style={styles.eventTarget}>{event.target}</span>
+      <span style={styles.eventTime}>{formatTime(event.timestamp)}</span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EventListView Component - Event group with virtual scroll
+// ─────────────────────────────────────────────────────────────────────────────
+
+const EVENT_ITEM_HEIGHT = 32;
+
+interface EventListViewProps {
+  events: EventRecord[];
+  collapsed: boolean;
+  onToggle: () => void;
+  onEventClick: (event: EventRecord) => void;
+  type: "native" | "custom";
+}
+
+function EventListView({
+  events,
+  collapsed,
+  onToggle,
+  onEventClick,
+  type,
+}: EventListViewProps) {
+  return (
+    <div style={styles.group}>
+      <div style={styles.groupHeader} onClick={onToggle}>
+        <span
+          style={{
+            ...styles.collapseIcon,
+            transform: collapsed ? "rotate(0deg)" : "rotate(90deg)",
+          }}
+        >
+          ▶
+        </span>
+        <span
+          style={type === "native" ? styles.badgeNative : styles.badgeCustom}
+        >
+          {type === "native" ? "Native" : "Custom"}
+        </span>
+        <span style={styles.groupCount}>{events.length}</span>
+      </div>
+      {!collapsed && events.length > 0 && (
+        <VirtualScroll
+          items={events}
+          itemHeight={EVENT_ITEM_HEIGHT}
+          maxHeight={180}
+          renderItem={(event) => (
+            <EventListItem event={event} onClick={onEventClick} />
+          )}
+          emptyMessage={`No ${type} events`}
+        />
+      )}
     </div>
   );
 }
@@ -225,10 +766,9 @@ export function Panel(props: PanelProps) {
   const customEvents = events.filter((e) => e.eventType === "custom");
 
   const [minimized, setMinimized] = useState(false);
-  const [nativeCollapsed, setNativeCollapsed] = useState(true);
+  const [nativeCollapsed, setNativeCollapsed] = useState(false);
   const [customCollapsed, setCustomCollapsed] = useState(true);
 
-  // Detail view state
   const [selectedEvent, setSelectedEvent] = useState<EventRecord | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
@@ -256,7 +796,16 @@ export function Panel(props: PanelProps) {
       setIsExpanded(false);
       setIsExiting(false);
       setSelectedEvent(null);
-    }, 250);
+    }, 200);
+  }, []);
+
+  // Minimize in detail view = go back to list
+  const handleDetailMinimize = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(() => {
+      setIsExpanded(false);
+      setIsExiting(false);
+    }, 200);
   }, []);
 
   const handleTargetClick = useCallback((element: Element) => {
@@ -267,9 +816,9 @@ export function Panel(props: PanelProps) {
     // Scroll into view
     el.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    // Ripple outline animation - shrinks from outside to element size
+    // Ripple outline animation - shrinks from small to element size
     const rect = el.getBoundingClientRect();
-    const startScale = 1.5; // Start 50% larger than element
+    const startScale = 1.15; // Start 15% larger than element
 
     const ripple = document.createElement("div");
     ripple.style.cssText = `
@@ -278,25 +827,23 @@ export function Panel(props: PanelProps) {
       top: ${rect.top - (rect.height * (startScale - 1)) / 2}px;
       width: ${rect.width * startScale}px;
       height: ${rect.height * startScale}px;
-      border: 3px solid #FF9800;
-      border-radius: 8px;
+      border: 3px solid ${THEME.accentOrange};
+      border-radius: 6px;
       pointer-events: none;
+      user-select: none;
       z-index: 2147483646;
-      transform-origin: center;
+      opacity: 1;
     `;
     document.body.appendChild(ripple);
 
     const startTime = performance.now();
-    const duration = 500;
+    const duration = 400;
 
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-
-      // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
 
-      // Scale from startScale down to 1
       const scale = startScale - (startScale - 1) * eased;
       const currentWidth = rect.width * scale;
       const currentHeight = rect.height * scale;
@@ -305,19 +852,13 @@ export function Panel(props: PanelProps) {
       ripple.style.height = `${currentHeight}px`;
       ripple.style.left = `${rect.left - (currentWidth - rect.width) / 2}px`;
       ripple.style.top = `${rect.top - (currentHeight - rect.height) / 2}px`;
+      ripple.style.opacity =
+        progress > 0.6 ? String(1 - (progress - 0.6) / 0.4) : "1";
 
-      // Fade out in the last 30%
-      ripple.style.opacity = progress > 0.7 ? String(1 - (progress - 0.7) / 0.3) : "1";
-
-      // Final snap to element outline
       if (progress >= 1) {
-        ripple.style.width = `${rect.width}px`;
-        ripple.style.height = `${rect.height}px`;
-        ripple.style.left = `${rect.left}px`;
-        ripple.style.top = `${rect.top}px`;
         ripple.style.opacity = "0";
-        ripple.style.transition = "opacity 0.3s ease-out";
-        setTimeout(() => ripple.remove(), 300);
+        ripple.style.transition = "opacity 0.2s ease-out";
+        setTimeout(() => ripple.remove(), 200);
         return;
       }
 
@@ -340,10 +881,10 @@ export function Panel(props: PanelProps) {
           ...(isExpanded ? styles.panelExpanded : {}),
         }}
       >
-        {/* Header - always visible */}
+        {/* Header */}
         <div style={styles.header}>
           <h3 style={styles.title}>
-            {isExpanded ? "Event Detail" : "Event Inspector"}
+            {isExpanded ? "Event Detail" : "⚡ Event Inspector"}
           </h3>
           <div style={styles.actions}>
             {!isExpanded && (
@@ -357,8 +898,39 @@ export function Panel(props: PanelProps) {
             >
               {paused ? "Off" : "On"}
             </button>
-            {!isExpanded && !isExiting && (
-              <button style={styles.btn} onClick={handleMinimize}>
+            {isExpanded && (
+              <button
+                style={styles.minimizeBtn}
+                onClick={handleDetailMinimize}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.1)";
+                  e.currentTarget.style.boxShadow = `0 2px 8px ${THEME.shadow}`;
+                  e.currentTarget.style.background = THEME.border;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.background = THEME.bgLight;
+                }}
+              >
+                _
+              </button>
+            )}
+            {!isExpanded && !minimized && (
+              <button
+                style={styles.minimizeBtn}
+                onClick={handleMinimize}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.1)";
+                  e.currentTarget.style.boxShadow = `0 2px 8px ${THEME.shadow}`;
+                  e.currentTarget.style.background = THEME.border;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.background = THEME.bgLight;
+                }}
+              >
                 _
               </button>
             )}
@@ -370,381 +942,33 @@ export function Panel(props: PanelProps) {
 
         {/* Content */}
         {!isExpanded ? (
-          // ─────────────────────────────────────────────────────────────────
-          // Main List View
-          // ─────────────────────────────────────────────────────────────────
           !minimized && (
             <div style={styles.eventList}>
-              {/* Native Group */}
-              <div style={styles.group}>
-                <div
-                  style={styles.groupHeader}
-                  onClick={() => setNativeCollapsed(!nativeCollapsed)}
-                >
-                  <span style={styles.collapseIcon}>
-                    {nativeCollapsed ? "▶" : "▼"}
-                  </span>
-                  <span style={styles.badgeNative}>Native</span>
-                  <span style={styles.groupCount}>{nativeEvents.length}</span>
-                </div>
-                {!nativeCollapsed && nativeEvents.length > 0 && (
-                  <div style={styles.groupEvents}>
-                    {nativeEvents.slice(0, 30).map((event) => (
-                      <div
-                        key={event.id}
-                        style={{ ...styles.eventItem, paddingLeft: "28px" }}
-                        onClick={() => handleEventClick(event)}
-                      >
-                        <span style={styles.eventName}>{event.name}</span>
-                        <span style={styles.eventTarget}>{event.target}</span>
-                        <span style={styles.eventTime}>
-                          {formatTime(event.timestamp)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Custom Group */}
-              <div style={styles.group}>
-                <div
-                  style={styles.groupHeader}
-                  onClick={() => setCustomCollapsed(!customCollapsed)}
-                >
-                  <span style={styles.collapseIcon}>
-                    {customCollapsed ? "▶" : "▼"}
-                  </span>
-                  <span style={styles.badgeCustom}>Custom</span>
-                  <span style={styles.groupCount}>{customEvents.length}</span>
-                </div>
-                {!customCollapsed && customEvents.length > 0 && (
-                  <div style={styles.groupEvents}>
-                    {customEvents.slice(0, 30).map((event) => (
-                      <div
-                        key={event.id}
-                        style={{ ...styles.eventItem, paddingLeft: "28px" }}
-                        onClick={() => handleEventClick(event)}
-                      >
-                        <span style={styles.eventName}>{event.name}</span>
-                        <span style={styles.eventTarget}>{event.target}</span>
-                        <span style={styles.eventTime}>
-                          {formatTime(event.timestamp)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <EventListView
+                events={nativeEvents}
+                collapsed={nativeCollapsed}
+                onToggle={() => setNativeCollapsed(!nativeCollapsed)}
+                onEventClick={handleEventClick}
+                type="native"
+              />
+              <EventListView
+                events={customEvents}
+                collapsed={customCollapsed}
+                onToggle={() => setCustomCollapsed(!customCollapsed)}
+                onEventClick={handleEventClick}
+                type="custom"
+              />
             </div>
           )
         ) : selectedEvent ? (
-          // ─────────────────────────────────────────────────────────────────
-          // Detail View
-          // ─────────────────────────────────────────────────────────────────
-          <EventDetailView event={selectedEvent} onBack={handleBack} onTargetClick={handleTargetClick} isExiting={isExiting} />
+          <EventDetailView
+            event={selectedEvent}
+            onBack={handleBack}
+            onTargetClick={handleTargetClick}
+            isExiting={isExiting}
+          />
         ) : null}
       </div>
     </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
-
-const styles: Record<string, React.CSSProperties> = {
-  host: {
-    position: "fixed",
-    top: "20px",
-    right: "20px",
-    width: "380px",
-    maxHeight: "400px",
-    zIndex: "2147483647",
-    fontFamily: "system-ui, sans-serif",
-    fontSize: "13px",
-    pointerEvents: "auto",
-    transition: "width 0.3s ease-out",
-  },
-  hostExpanded: {
-    width: "420px",
-  },
-  panel: {
-    background: "#1e1e1e",
-    color: "#fff",
-    borderRadius: "8px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    maxHeight: "400px",
-    transition: "max-height 0.3s ease-out",
-  },
-  panelExpanded: {
-    maxHeight: "600px",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "8px 12px",
-    borderBottom: "1px solid #444",
-    flexShrink: 0,
-  },
-  title: {
-    margin: 0,
-    fontSize: "14px",
-    fontWeight: 600,
-  },
-  actions: {
-    display: "flex",
-    gap: "6px",
-  },
-  btn: {
-    background: "#444",
-    border: "none",
-    color: "#fff",
-    padding: "4px 10px",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontSize: "12px",
-  },
-  btnClose: {
-    background: "#f44336",
-    border: "none",
-    color: "#fff",
-    padding: "4px 10px",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "bold",
-  },
-  btnOn: {
-    background: "#4CAF50",
-    border: "none",
-    color: "#fff",
-    padding: "4px 10px",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontSize: "12px",
-  },
-  btnOff: {
-    background: "#f44336",
-    border: "none",
-    color: "#fff",
-    padding: "4px 10px",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontSize: "12px",
-  },
-  eventList: {
-    maxHeight: "320px",
-    overflowY: "auto",
-    padding: "8px",
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-  },
-  group: {
-    marginBottom: "8px",
-  },
-  groupHeader: {
-    display: "flex",
-    alignItems: "center",
-    padding: "6px 8px",
-    background: "#2d2d2d",
-    borderRadius: "4px",
-    cursor: "pointer",
-    userSelect: "none",
-  },
-  collapseIcon: {
-    fontSize: "10px",
-    marginRight: "6px",
-    color: "#888",
-  },
-  groupCount: {
-    marginLeft: "auto",
-    fontSize: "11px",
-    color: "#888",
-  },
-  groupEvents: {
-    marginTop: "4px",
-    display: "flex",
-    flexDirection: "column",
-  },
-  eventItem: {
-    padding: "6px 8px",
-    marginBottom: "4px",
-    borderRadius: "4px",
-    background: "#2d2d2d",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-  },
-  badgeNative: {
-    background: "#4CAF50",
-    color: "#fff",
-    padding: "2px 6px",
-    borderRadius: "3px",
-    fontSize: "10px",
-    marginRight: "6px",
-  },
-  badgeCustom: {
-    background: "#2196F3",
-    color: "#fff",
-    padding: "2px 6px",
-    borderRadius: "3px",
-    fontSize: "10px",
-    marginRight: "6px",
-  },
-  eventName: {
-    fontWeight: 600,
-    flexShrink: 0,
-  },
-  eventTarget: {
-    color: "#aaa",
-    fontSize: "11px",
-    marginLeft: "8px",
-    flex: 1,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  eventTime: {
-    color: "#666",
-    fontSize: "10px",
-    marginLeft: "auto",
-    flexShrink: 0,
-  },
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Detail View Styles
-  // ─────────────────────────────────────────────────────────────────────────
-  detailView: {
-    padding: "12px",
-    opacity: 0,
-    transform: "translateY(-8px)",
-    transition: "opacity 0.25s ease-out, transform 0.25s ease-out",
-    maxHeight: "520px",
-    overflowY: "auto",
-  },
-  detailViewVisible: {
-    opacity: 1,
-    transform: "translateY(0)",
-  },
-  detailViewExiting: {
-    opacity: 0,
-    transform: "translateY(-8px)",
-    transition: "opacity 0.2s ease-out, transform 0.2s ease-out",
-  },
-  detailHeader: {
-    marginBottom: "12px",
-  },
-  backBtn: {
-    background: "#2196F3",
-    border: "none",
-    color: "#fff",
-    padding: "6px 12px",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontSize: "12px",
-  },
-  eventSummary: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    marginBottom: "12px",
-    padding: "8px",
-    background: "#2d2d2d",
-    borderRadius: "4px",
-    cursor: "pointer",
-  },
-  highlightHint: {
-    marginLeft: "auto",
-    fontSize: "10px",
-    color: "#666",
-  },
-  detailEventName: {
-    fontSize: "16px",
-    fontWeight: 600,
-  },
-  eventMeta: {
-    marginBottom: "16px",
-  },
-  metaRow: {
-    display: "flex",
-    alignItems: "flex-start",
-    marginBottom: "8px",
-    fontSize: "12px",
-  },
-  metaLabel: {
-    color: "#888",
-    minWidth: "60px",
-  },
-  metaValue: {
-    color: "#ccc",
-  },
-  metaCode: {
-    fontFamily: "monospace",
-    fontSize: "11px",
-    color: "#ccc",
-    background: "#333",
-    padding: "2px 6px",
-    borderRadius: "3px",
-    wordBreak: "break-all",
-  },
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // DOM Tree Styles
-  // ─────────────────────────────────────────────────────────────────────────
-  treeSection: {
-    borderTop: "1px solid #444",
-    paddingTop: "12px",
-  },
-  treeTitle: {
-    margin: "0 0 8px 0",
-    fontSize: "12px",
-    fontWeight: 600,
-    color: "#888",
-    textTransform: "uppercase",
-  },
-  domTree: {
-    fontFamily: "monospace",
-    fontSize: "11px",
-    lineHeight: "1.6",
-  },
-  virtualScrollContainer: {
-    overflowY: "auto",
-    maxHeight: "300px",
-  },
-  treeEmpty: {
-    color: "#666",
-    fontStyle: "italic",
-    padding: "8px",
-  },
-  treeNode: {
-    display: "flex",
-    alignItems: "center",
-    padding: "2px 0",
-  },
-  treeArrow: {
-    color: "#555",
-    userSelect: "none",
-  },
-  treeSelector: {
-    color: "#aaa",
-  },
-  treeSelectorTarget: {
-    color: "#4CAF50",
-    fontWeight: 600,
-  },
-  targetBadge: {
-    marginLeft: "8px",
-    background: "#4CAF50",
-    color: "#fff",
-    padding: "1px 4px",
-    borderRadius: "2px",
-    fontSize: "9px",
-    fontWeight: 600,
-  },
-};
