@@ -84,6 +84,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: THEME.fontUI,
     fontSize: "13px",
     pointerEvents: "auto",
+    transition: `width ${TIMING.slow} ${TIMING.easing}`,
   },
   hostExpanded: {
     width: "440px",
@@ -100,14 +101,20 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     maxHeight: "400px",
     opacity: 1,
-    transition: `max-height ${TIMING.slow} ${TIMING.easing}, opacity ${TIMING.normal} ${TIMING.easing}`,
+    transform: "scale(1)",
+    transition: `max-height ${TIMING.slow} ${TIMING.easing}, opacity ${TIMING.normal} ${TIMING.easing}, transform ${TIMING.slow} ${TIMING.easing}`,
   },
-  panelCollapsing: {
+panelCollapsing: {
     maxHeight: "0px",
     opacity: 0,
   },
+  panelCollapsingResize: {
+    maxHeight: "400px",
+    transform: "scale(0.95)",
+  },
   panelExpanded: {
     maxHeight: "620px",
+    transform: "scale(1)",
   },
 
   // Header
@@ -878,7 +885,8 @@ export function Panel(props: PanelProps) {
       <div
         style={{
           ...styles.panel,
-          ...(isExpanded ? styles.panelExpanded : {}),
+          ...(isExpanded && !isExiting ? styles.panelExpanded : {}),
+          ...(isExiting ? styles.panelCollapsingResize : {}),
         }}
       >
         {/* Header */}

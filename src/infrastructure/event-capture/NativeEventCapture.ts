@@ -44,8 +44,20 @@ function handleNativeEvent(event: Event): void {
   
   if (!target || !(target instanceof Element)) return;
 
-  // Don't capture events from the panel itself
-  if (panelRoot && panelRoot.contains(target as Node)) return;
+  // Don't capture if ANY element in the composed path belongs to our panel
+  if (panelRoot) {
+    const panelElements = path.filter((node): node is Element => 
+      node instanceof Element && panelRoot!.contains(node)
+    );
+    if (panelElements.length > 0) return;
+  }
+
+  // Filter composedPath to exclude panel elements for the tree display
+  const filteredPath = panelRoot 
+    ? path.filter((node): node is Element => 
+        node instanceof Element && !panelRoot!.contains(node)
+      )
+    : path.filter((node): node is Element => node instanceof Element);
 
   const record: EventRecord = {
     id: generateEventId(),
@@ -54,7 +66,7 @@ function handleNativeEvent(event: Event): void {
     target: getCssSelector(target),
     targetElement: target,
     timestamp: Date.now(),
-    composedPath: path.filter((node): node is Element => node instanceof Element),
+    composedPath: filteredPath,
   };
 
   events.unshift(record);
