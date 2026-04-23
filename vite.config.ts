@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           "bootstrap": resolve(__dirname, "src/bootstrap.ts"),
-          "content-script": resolve(__dirname, "src/content-script.tsx"),
+          "content-script": resolve(__dirname, "src/presentation/entry/content-script.tsx"),
           background: resolve(__dirname, "src/background.ts"),
         },
         output: {

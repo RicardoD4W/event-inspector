@@ -1,5 +1,7 @@
 /**
- * CSS Selector Generator - Creates unique CSS selectors for elements
+ * CSS Selector Generator - Infrastructure Layer
+ *
+ * Creates unique CSS selectors for elements
  */
 
 /**
@@ -7,15 +9,15 @@
  */
 export function getCssSelector(element: Element): string {
   if (element.id) {
-    return `#${element.id}`
+    return `#${element.id}`;
   }
 
   if (element.getAttribute('data-testid')) {
-    return `[data-testid="${element.getAttribute('data-testid')}"]`
+    return `[data-testid="${element.getAttribute('data-testid')}"]`;
   }
 
   if (element.getAttribute('data-test')) {
-    return `[data-test="${element.getAttribute('data-test')}"]`
+    return `[data-test="${element.getAttribute('data-test')}"]`;
   }
 
   // Build selector from classes
@@ -23,12 +25,12 @@ export function getCssSelector(element: Element): string {
     .split(' ')
     .filter((c) => c && !c.includes('event-inspector'))
     .slice(0, 2)
-    .join('.')
+    .join('.');
 
   if (className) {
-    return `${element.tagName.toLowerCase()}.${className}`
+    return `${element.tagName.toLowerCase()}.${className}`;
   }
 
   // Fallback to tag name only
-  return element.tagName.toLowerCase()
+  return element.tagName.toLowerCase();
 }

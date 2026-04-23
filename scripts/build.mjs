@@ -59,7 +59,7 @@ async function buildContentScript() {
     plugins: [react()],
     build: {
       lib: {
-        entry: resolve(ROOT, 'src/content-script.tsx'),
+        entry: resolve(ROOT, 'src/presentation/entry/content-script.tsx'),
         name: 'EventInspector',
         fileName: () => 'content-script.js',
         formats: ['iife'],
