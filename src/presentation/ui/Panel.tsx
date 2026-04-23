@@ -104,7 +104,7 @@ const styles: Record<string, React.CSSProperties> = {
     transform: "scale(1)",
     transition: `max-height ${TIMING.slow} ${TIMING.easing}, opacity ${TIMING.normal} ${TIMING.easing}, transform ${TIMING.slow} ${TIMING.easing}`,
   },
-panelCollapsing: {
+  panelCollapsing: {
     maxHeight: "0px",
     opacity: 0,
   },
@@ -684,7 +684,9 @@ function EventDetailView({
           {event.bubbles !== undefined && (
             <div style={styles.metaRow}>
               <span style={styles.metaLabel}>Bubbles:</span>
-              <span style={styles.metaValue}>{event.bubbles ? "Yes" : "No"}</span>
+              <span style={styles.metaValue}>
+                {event.bubbles ? "Yes" : "No"}
+              </span>
             </div>
           )}
           {event.detail !== undefined && (
@@ -810,35 +812,47 @@ export function Panel(props: PanelProps) {
   const [isExiting, setIsExiting] = useState(false);
 
   // Dragging state
-  const [position, setPosition] = useState({ x: 20, y: 20 });
+  const [position, setPosition] = useState({
+    x: window.innerWidth - 420 - 20,
+    y: 20,
+  });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    setIsDragging(true);
-    setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    });
-  }, [position]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest("button")) return;
+      setIsDragging(true);
+      setDragOffset({
+        x: e.clientX - position.x,
+        y: e.clientY - position.y,
+      });
+    },
+    [position],
+  );
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    // Get panel dimensions (approximate)
-    const panelWidth = isExpanded ? 440 : 400;
-    const panelHeight = isExpanded ? 620 : 400;
-    
-    // Calculate boundaries to keep panel on screen
-    const maxX = window.innerWidth - panelWidth;
-    const maxY = window.innerHeight - panelHeight;
-    
-    setPosition({
-      x: Math.max(0, Math.min(maxX, e.clientX - dragOffset.x)),
-      y: Math.max(0, Math.min(maxY, e.clientY - dragOffset.y)),
-    });
-  }, [isDragging, dragOffset, isExpanded]);
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
+
+      // Margen mínimo desde los bordes
+      const margin = 20;
+
+      // Get panel dimensions (approximate)
+      const panelWidth = 400;
+      const panelMinHeight = 60;
+
+      // Calculate boundaries to keep panel on screen with margin
+      const maxX = window.innerWidth - panelWidth - margin;
+      const maxY = window.innerHeight - panelMinHeight - margin;
+
+      setPosition({
+        x: Math.max(margin, Math.min(maxX, e.clientX - dragOffset.x)),
+        y: Math.max(margin, Math.min(maxY, e.clientY - dragOffset.y)),
+      });
+    },
+    [isDragging, dragOffset],
+  );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -1001,10 +1015,10 @@ export function Panel(props: PanelProps) {
                 {minimized ? "+" : "_"}
               </button>
             )}
-{/* Botón minimize - siempre visible cuando no está expandido */}
+            {/* Botón minimize - siempre visible cuando no está expandido */}
             {!isExpanded && (
-              <button 
-                style={styles.minimizeBtn} 
+              <button
+                style={styles.minimizeBtn}
                 onClick={handleMinimize}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "scale(1.1)";
