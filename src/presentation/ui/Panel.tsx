@@ -127,6 +127,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: `1px solid ${THEME.border}`,
     flexShrink: 0,
     cursor: "grab",
+    userSelect: "none",
   },
   title: {
     margin: 0,
@@ -813,7 +814,7 @@ export function Panel(props: PanelProps) {
 
   // Dragging state
   const [position, setPosition] = useState({
-    x: window.innerWidth - 420 - 20,
+    x: window.innerWidth - 420 - 30,
     y: 20,
   });
   const [isDragging, setIsDragging] = useState(false);
@@ -837,13 +838,14 @@ export function Panel(props: PanelProps) {
 
       // Margen mínimo desde los bordes
       const margin = 20;
+      const rightMargin = 30;
 
       // Get panel dimensions (approximate)
       const panelWidth = 400;
       const panelMinHeight = 60;
 
       // Calculate boundaries to keep panel on screen with margin
-      const maxX = window.innerWidth - panelWidth - margin;
+      const maxX = window.innerWidth - panelWidth - rightMargin;
       const maxY = window.innerHeight - panelMinHeight - margin;
 
       setPosition({
@@ -961,16 +963,14 @@ export function Panel(props: PanelProps) {
     requestAnimationFrame(animate);
   }, []);
 
-  return (
+return (
     <div
       style={{
         ...styles.host,
         left: position.x,
         top: position.y,
-        cursor: isDragging ? "grabbing" : "grab",
         ...(isExpanded ? styles.hostExpanded : {}),
       }}
-      onMouseDown={handleMouseDown}
     >
       <div
         style={{
@@ -979,8 +979,14 @@ export function Panel(props: PanelProps) {
           ...(isExiting ? styles.panelCollapsingResize : {}),
         }}
       >
-        {/* Header */}
-        <div style={styles.header}>
+        {/* Header - Draggable */}
+        <div 
+          style={{
+            ...styles.header,
+            cursor: isDragging ? "grabbing" : "grab",
+          }}
+          onMouseDown={handleMouseDown}
+        >
           <h3 style={styles.title}>
             {isExpanded ? "Event Detail" : "⚡ Event Inspector"}
           </h3>
