@@ -332,6 +332,23 @@ panelCollapsing: {
     transform: "translateY(-8px)",
     transition: `opacity ${TIMING.fast} ease, transform ${TIMING.fast} ease`,
   },
+  detailViewMinimized: {
+    maxHeight: "0px",
+    overflow: "hidden",
+    visibility: "hidden",
+    opacity: 0,
+    padding: 0,
+    margin: 0,
+    border: "none",
+  },
+  detailViewMinimizedShow: {
+    maxHeight: "0px",
+    overflow: "hidden",
+    visibility: "visible",
+    opacity: 1,
+    padding: "0px",
+    margin: "0px",
+  },
   detailHeader: {
     marginBottom: "16px",
   },
@@ -574,6 +591,7 @@ interface EventDetailViewProps {
   onBack: () => void;
   onTargetClick: (element: Element) => void;
   isExiting?: boolean;
+  isMinimized?: boolean;
 }
 
 function EventDetailView({
@@ -581,6 +599,7 @@ function EventDetailView({
   onBack,
   onTargetClick,
   isExiting,
+  isMinimized = false,
 }: EventDetailViewProps) {
   const [visible, setVisible] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -620,59 +639,68 @@ function EventDetailView({
         </button>
       </div>
 
-      {/* Event Summary - Clickable */}
+      {/* Content - this collapses when minimized */}
       <div
         style={{
-          ...styles.eventSummary,
-          ...(hovered ? styles.eventSummaryHover : {}),
+          overflow: isMinimized ? "hidden" : "auto",
+          maxHeight: isMinimized ? "0px" : "none",
+          transition: `max-height ${TIMING.normal} ${TIMING.easing}`,
         }}
-        onClick={() => onTargetClick(event.targetElement)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
       >
-        <span
-          style={
-            event.eventType === "native"
-              ? styles.badgeNative
-              : styles.badgeCustom
-          }
+        {/* Event Summary - Clickable */}
+        <div
+          style={{
+            ...styles.eventSummary,
+            ...(hovered ? styles.eventSummaryHover : {}),
+          }}
+          onClick={() => onTargetClick(event.targetElement)}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
         >
-          {event.eventType}
-        </span>
-        <span style={styles.detailEventName}>{event.name}</span>
-        <span style={styles.highlightHint}>👆 click to highlight</span>
-      </div>
-
-      {/* Metadata */}
-      <div style={styles.eventMeta}>
-        <div style={styles.metaRow}>
-          <span style={styles.metaLabel}>Target:</span>
-          <code style={styles.metaCode}>{event.target}</code>
+          <span
+            style={
+              event.eventType === "native"
+                ? styles.badgeNative
+                : styles.badgeCustom
+            }
+          >
+            {event.eventType}
+          </span>
+          <span style={styles.detailEventName}>{event.name}</span>
+          <span style={styles.highlightHint}>👆 click to highlight</span>
         </div>
-        <div style={styles.metaRow}>
-          <span style={styles.metaLabel}>Time:</span>
-          <span style={styles.metaValue}>{formatTime(event.timestamp)}</span>
-        </div>
-        {event.bubbles !== undefined && (
-          <div style={styles.metaRow}>
-            <span style={styles.metaLabel}>Bubbles:</span>
-            <span style={styles.metaValue}>{event.bubbles ? "Yes" : "No"}</span>
-          </div>
-        )}
-        {event.detail !== undefined && (
-          <div style={styles.metaRow}>
-            <span style={styles.metaLabel}>Detail:</span>
-            <code style={styles.metaCode}>
-              {JSON.stringify(event.detail, null, 2)}
-            </code>
-          </div>
-        )}
-      </div>
 
-      {/* DOM Tree */}
-      <div style={styles.treeSection}>
-        <h4 style={styles.treeTitle}>Event Path</h4>
-        <DomTree path={event.composedPath || []} />
+        {/* Metadata */}
+        <div style={styles.eventMeta}>
+          <div style={styles.metaRow}>
+            <span style={styles.metaLabel}>Target:</span>
+            <code style={styles.metaCode}>{event.target}</code>
+          </div>
+          <div style={styles.metaRow}>
+            <span style={styles.metaLabel}>Time:</span>
+            <span style={styles.metaValue}>{formatTime(event.timestamp)}</span>
+          </div>
+          {event.bubbles !== undefined && (
+            <div style={styles.metaRow}>
+              <span style={styles.metaLabel}>Bubbles:</span>
+              <span style={styles.metaValue}>{event.bubbles ? "Yes" : "No"}</span>
+            </div>
+          )}
+          {event.detail !== undefined && (
+            <div style={styles.metaRow}>
+              <span style={styles.metaLabel}>Detail:</span>
+              <code style={styles.metaCode}>
+                {JSON.stringify(event.detail, null, 2)}
+              </code>
+            </div>
+          )}
+        </div>
+
+        {/* DOM Tree */}
+        <div style={styles.treeSection}>
+          <h4 style={styles.treeTitle}>Event Path</h4>
+          <DomTree path={event.composedPath || []} />
+        </div>
       </div>
     </div>
   );
@@ -806,13 +834,9 @@ export function Panel(props: PanelProps) {
     }, 200);
   }, []);
 
-  // Minimize in detail view = go back to list
+  // Toggle minimize - same state for both views
   const handleDetailMinimize = useCallback(() => {
-    setIsExiting(true);
-    setTimeout(() => {
-      setIsExpanded(false);
-      setIsExiting(false);
-    }, 200);
+    setMinimized((prev) => !prev);
   }, []);
 
   const handleTargetClick = useCallback((element: Element) => {
@@ -920,13 +944,15 @@ export function Panel(props: PanelProps) {
                   e.currentTarget.style.boxShadow = "none";
                   e.currentTarget.style.background = THEME.bgLight;
                 }}
+                title={minimized ? "Expand" : "Minimize"}
               >
-                _
+                {minimized ? "+" : "_"}
               </button>
             )}
-            {!isExpanded && !minimized && (
-              <button
-                style={styles.minimizeBtn}
+{/* Botón minimize - siempre visible cuando no está expandido */}
+            {!isExpanded && (
+              <button 
+                style={styles.minimizeBtn} 
                 onClick={handleMinimize}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "scale(1.1)";
@@ -938,8 +964,9 @@ export function Panel(props: PanelProps) {
                   e.currentTarget.style.boxShadow = "none";
                   e.currentTarget.style.background = THEME.bgLight;
                 }}
+                title={minimized ? "Expand" : "Minimize"}
               >
-                _
+                {minimized ? "+" : "_"}
               </button>
             )}
             <button style={styles.btnClose} onClick={handleClose}>
@@ -974,6 +1001,7 @@ export function Panel(props: PanelProps) {
             onBack={handleBack}
             onTargetClick={handleTargetClick}
             isExiting={isExiting}
+            isMinimized={minimized}
           />
         ) : null}
       </div>
